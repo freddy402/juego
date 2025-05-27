@@ -28,16 +28,17 @@
       font-size: 14px;
     }
     #grid div.selected { background-color: rgba(0, 150, 250, 0.4); }
-    #grid div.found { background-color: rgba(0, 200, 100, 0.6); }
+    #grid div.found    { background-color: rgba(0, 200, 100, 0.6); }
     #words { max-width: 400px; margin: 20px auto; list-style: none; padding: 0; }
     #words li { margin: 4px 0; }
     #words li.found { text-decoration: line-through; color: #555; }
-    #results { max-width: 400px; margin: 20px auto; padding: 0; list-style: none; }
+    #results { max-width: 400px; margin: 20px auto; list-style: none; padding: 0; }
     #results li { margin: 4px 0; }
   </style>
 </head>
 <body>
   <h1>Sopa de Letra Clínica</h1>
+
   <div id="controls">
     <input id="username" type="text" placeholder="Tu nombre" />
     <button id="start">Empezar</button>
@@ -53,22 +54,19 @@
   <ul id="results"></ul>
 
   <script>
-    // Endpoint de tu Apps Script (Google Sheets)
+    // 1) Define aquí tu endpoint (URL acabada en /exec)
     const ENDPOINT = 'https://script.google.com/macros/s/AKfycbyBh1KVlUGY6tMBrGZgDb_eV_LhjY257qI1txKmfc7K3BD_m7VAv7U0dAPKr1jQF2U/exec';
 
-    // Palabras del puzzle
+    // 2) Palabras y estado inicial
     const words = [
       "HISTORIA", "CLINICA", "PACIENTE", "DIAGNOSTICO", "TRATAMIENTO",
       "MEDICO", "ENFERMERIA", "EVOLUCION", "CONSENTIMIENTO",
       "INGRESO", "EGRESO", "REGISTRO", "CUSTODIA", "ARCHIVO"
     ];
     const size = 15;
-    let grid = [];
-    let foundCount = 0;
-    let seconds = 0;
-    let timerInterval;
+    let grid = [], foundCount = 0, seconds = 0, timerInterval;
 
-    // Inicializa matriz y coloca palabras
+    // 3) Generar la sopa de letras
     function initGrid() {
       grid = Array.from({ length: size }, () => Array(size).fill(''));
       const dirs = [[0,1],[1,0],[1,1],[1,-1]];
@@ -76,44 +74,44 @@
         let placed = false;
         while (!placed) {
           const [dr, dc] = dirs[Math.floor(Math.random() * dirs.length)];
-          const r = Math.floor(Math.random() * size);
-          const c = Math.floor(Math.random() * size);
-          const endR = r + dr * (w.length - 1);
-          const endC = c + dc * (w.length - 1);
-          if (endR < 0 || endR >= size || endC < 0 || endC >= size) continue;
+          const r = Math.floor(Math.random() * size),
+                c = Math.floor(Math.random() * size);
+          const endR = r + dr * (w.length - 1),
+                endC = c + dc * (w.length - 1);
+          if (endR<0||endR>=size||endC<0||endC>=size) continue;
           let ok = true;
-          for (let i = 0; i < w.length; i++) {
-            const rr = r + dr * i;
-            const cc = c + dc * i;
-            if (grid[rr][cc] && grid[rr][cc] !== w[i]) { ok = false; break; }
+          for (let i=0; i<w.length; i++) {
+            if (grid[r+dr*i][c+dc*i] && grid[r+dr*i][c+dc*i] !== w[i]) {
+              ok = false; break;
+            }
           }
           if (!ok) continue;
-          for (let i = 0; i < w.length; i++) {
-            grid[r + dr*i][c + dc*i] = w[i];
+          for (let i=0; i<w.length; i++) {
+            grid[r+dr*i][c+dc*i] = w[i];
           }
           placed = true;
         }
       });
       const alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-      for (let i = 0; i < size; i++) {
-        for (let j = 0; j < size; j++) {
+      for (let i=0; i<size; i++) {
+        for (let j=0; j<size; j++) {
           if (!grid[i][j]) {
-            grid[i][j] = alpha[Math.floor(Math.random() * alpha.length)];
+            grid[i][j] = alpha[Math.floor(Math.random()*alpha.length)];
           }
         }
       }
     }
 
-    // Renderiza cuadrícula y lista de palabras
+    // Render de la cuadrícula y palabras
     function render() {
       const gridEl = document.getElementById('grid');
       gridEl.innerHTML = '';
-      for (let i = 0; i < size; i++) {
-        for (let j = 0; j < size; j++) {
+      for (let i=0; i<size; i++) {
+        for (let j=0; j<size; j++) {
           const cell = document.createElement('div');
-          cell.textContent = grid[i][j];
-          cell.dataset.row = i;
-          cell.dataset.col = j;
+          cell.textContent   = grid[i][j];
+          cell.dataset.row  = i;
+          cell.dataset.col  = j;
           gridEl.appendChild(cell);
         }
       }
@@ -130,34 +128,36 @@
     // Cronómetro
     function updateTimer() {
       seconds++;
-      const mm = String(Math.floor(seconds / 60)).padStart(2, '0');
-      const ss = String(seconds % 60).padStart(2, '0');
+      const mm = String(Math.floor(seconds/60)).padStart(2,'0');
+      const ss = String(seconds%60).padStart(2,'0');
       document.getElementById('timer').textContent = `${mm}:${ss}`;
     }
 
     function startGame() {
       clearInterval(timerInterval);
-      seconds = 0;
-      foundCount = 0;
+      seconds = 0; foundCount = 0;
       document.getElementById('timer').textContent = '00:00';
-      initGrid();
-      render();
+      initGrid(); render();
       timerInterval = setInterval(updateTimer, 1000);
     }
 
-    // Al completar todas las palabras
+    // Al terminar la partida
     function finishGame() {
       clearInterval(timerInterval);
-      const name = document.getElementById('username').value.trim() || 'Anonimo';
+      const name    = document.getElementById('username').value.trim() || 'Anonimo';
       const timeStr = document.getElementById('timer').textContent;
-      // Guarda en Google Sheets vía Apps Script
+
+      // 4) Guardar resultado
       fetch(ENDPOINT, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, time: timeStr })
-      }).then(() => fetchScores());
+      })
+      .then(() => fetchScores())
+      .catch(e => console.error('Error guardando:', e));
     }
 
-    // Obtiene ranking
+    // Cargar ranking
     function fetchScores() {
       fetch(ENDPOINT)
         .then(res => res.json())
@@ -169,21 +169,23 @@
             li.textContent = `${item.name} – ${item.time}`;
             el.appendChild(li);
           });
-        });
+        })
+        .catch(e => console.error('Error leyendo ranking:', e));
     }
 
-    // Lógica de selección táctil y con ratón
+    // Selección de palabras (mouse + touch)
     let selecting = false, startCell = null;
     function clearSelection() {
-      document.querySelectorAll('#grid .selected').forEach(c => c.classList.remove('selected'));
+      document.querySelectorAll('#grid .selected')
+              .forEach(c => c.classList.remove('selected'));
     }
     function checkSelection() {
       const sel = Array.from(document.querySelectorAll('#grid .selected'));
-      const txt = sel.map(c => c.textContent).join('');
-      const rev = txt.split('').reverse().join('');
-      const w = words.find(w => w === txt || w === rev);
+      const word = sel.map(c => c.textContent).join('');
+      const rev  = word.split('').reverse().join('');
+      const w = words.find(x => x === word || x === rev);
       if (w) {
-        sel.forEach(c => c.classList.replace('selected', 'found'));
+        sel.forEach(c => c.classList.replace('selected','found'));
         document.getElementById(`word-${w}`).classList.add('found');
         foundCount++;
         if (foundCount === words.length) finishGame();
@@ -194,8 +196,9 @@
 
     // Eventos
     document.getElementById('start').addEventListener('click', startGame);
+
     document.addEventListener('mousedown', e => {
-      if (e.target.dataset.row) {
+      if (e.target.dataset.row != null) {
         selecting = true;
         startCell = e.target;
         clearSelection();
@@ -203,32 +206,31 @@
       }
     });
     document.addEventListener('mousemove', e => {
-      if (selecting) {
-        const el = document.elementFromPoint(e.clientX, e.clientY);
-        if (el && el.dataset.row) {
-          clearSelection();
-          const r1 = +startCell.dataset.row, c1 = +startCell.dataset.col;
-          const r2 = +el.dataset.row, c2 = +el.dataset.col;
-          const dr = Math.sign(r2 - r1), dc = Math.sign(c2 - c1);
-          const len = Math.max(Math.abs(r2 - r1), Math.abs(c2 - c1));
-          for (let i = 0; i <= len; i++) {
-            const cell = document.querySelector(`[data-row='${r1+dr*i}'][data-col='${c1+dc*i}']`);
-            if (!cell) break;
-            cell.classList.add('selected');
-          }
+      if (!selecting) return;
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      if (el && el.dataset.row != null) {
+        clearSelection();
+        const r1 = +startCell.dataset.row, c1 = +startCell.dataset.col;
+        const r2 = +el.dataset.row,       c2 = +el.dataset.col;
+        const dr = Math.sign(r2 - r1),    dc = Math.sign(c2 - c1);
+        const len = Math.max(Math.abs(r2-r1), Math.abs(c2-c1));
+        for (let i=0; i<=len; i++) {
+          const cell = document.querySelector(
+            `[data-row='${r1+dr*i}'][data-col='${c1+dc*i}']`
+          );
+          if (!cell) break;
+          cell.classList.add('selected');
         }
       }
     });
     document.addEventListener('mouseup', () => {
-      if (selecting) {
-        selecting = false;
-        checkSelection();
-      }
+      if (selecting) { selecting = false; checkSelection(); }
     });
+
     document.addEventListener('touchstart', e => {
       const t = e.touches[0];
       const el = document.elementFromPoint(t.clientX, t.clientY);
-      if (el && el.dataset.row) {
+      if (el && el.dataset.row != null) {
         selecting = true;
         startCell = el;
         clearSelection();
@@ -237,19 +239,17 @@
     });
     document.addEventListener('touchmove', e => {
       e.preventDefault();
-      if (selecting) {
-        const t = e.touches[0];
-        document.dispatchEvent(new MouseEvent('mousemove', { clientX: t.clientX, clientY: t.clientY }));
-      }
+      if (!selecting) return;
+      const t = e.touches[0];
+      document.dispatchEvent(new MouseEvent('mousemove',{
+        clientX: t.clientX, clientY: t.clientY
+      }));
     });
     document.addEventListener('touchend', () => {
-      if (selecting) {
-        selecting = false;
-        checkSelection();
-      }
+      if (selecting) { selecting = false; checkSelection(); }
     });
 
-    // Carga inicial del ranking
+    // Nada más cargar: traemos el ranking
     document.addEventListener('DOMContentLoaded', fetchScores);
   </script>
 </body>
