@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sopa de Letra Clínica</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    h1 { text-align: center; margin-bottom: 10px; }
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(15, 30px);
+      gap: 0;
+      justify-content: center;
+      user-select: none;
+    }
+    #grid div {
+      width: 30px; height: 30px;
+      display: flex; align-items: center; justify-content: center;
+      border: 1px solid #333;
+      cursor: pointer;
+    }
+    #grid div.selected { background-color: rgba(0, 150, 250, 0.4); }
+    #grid div.found { background-color: rgba(0, 200, 100, 0.6); }
+    #words { max-width: 400px; margin: 20px auto 0; list-style: none; padding: 0; }
+    #words li { margin: 4px 0; }
+    #words li.found { text-decoration: line-through; color: #555; }
+  </style>
+</head>
+<body>
+  <h1>Sopa de Letra Clínica</h1>
+  <div id="puzzle">
+    <div id="grid"></div>
+    <ul id="words"></ul>
+  </div>
+
+  <script>
+    const words = [
+      "HISTORIA","CLINICA","PACIENTE","DIAGNOSTICO","TRATAMIENTO",
+      "MEDICO","ENFERMERIA","EVOLUCION","CONSENTIMIENTO",
+      "INGRESO","EGRESO","REGISTRO","CUSTODIA","ARCHIVO"
+    ];
+    const size = 15;
+    let grid = [];
+
+    function initGrid() {
+      grid = Array.from({ length: size }, () => Array(size).fill(''));
+      const directions = [[0,1],[1,0],[1,1],[1,-1]];
+      words.forEach(word => {
+        const w = word.normalize('NFD').replace(/[̀-ͯ]/g, '');
+        const len = w.length;
+        let placed = false;
+        while (!placed) {
+          const [dr, dc] = directions[Math.floor(Math.random() * directions.length)];
+          const r = Math.floor(Math.random() * size);
+          const c = Math.floor(Math.random() * size);
+          const endR = r + dr * (len - 1);
+          const endC = c + dc * (len - 1);
+          if (endR < 0 || endR >= size || endC < 0 || endC >= size) continue;
+          let ok = true;
+          for (let i = 0; i < len; i++) {
+            const rr = r + dr * i;
+            const cc = c + dc * i;
+            if (grid[rr][cc] && grid[rr][cc] !== w[i]) { ok = false; break; }
+          }
+          if (!ok) continue;
+          for (let i = 0; i < len; i++) {
+            const rr = r + dr * i;
+            const cc = c + dc * i;
+            grid[rr][cc] = w[i];
+          }
+          placed = true;
+        }
+      });
+      const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      for (let i = 0; i < size; i++) {
+        for (let j = 0; j < size; j++) {
+          if (!grid[i][j]) {
+            grid[i][j] = alphabet[Math.floor(Math.random() * alphabet.length)];
+          }
+        }
+      }
+    }
+
+    function render() {
+      const gridEl = document.getElementById('grid');
+      gridEl.innerHTML = '';
+      for (let i = 0; i < size; i++) {
+        for (let j = 0; j < size; j++) {
+          const cell = document.createElement('div');
+          cell.textContent = grid[i][j];
+          cell.dataset.row = i;
+          cell.dataset.col = j;
+          gridEl.appendChild(cell);
+        }
+      }
+      const wordsEl = document.getElementById('words');
+      wordsEl.innerHTML = '';
+      words.forEach(w => {
+        const li = document.createElement('li');
+        li.textContent = w;
+        li.id = `word-${w}`;
+        wordsEl.appendChild(li);
+      });
+    }
+
+    let selecting = false;
+    let startCell = null;
+
+    document.getElementById('grid').addEventListener('mousedown', e => {
+      if ('row' in e.target.dataset) {
+        selecting = true;
+        startCell = e.target;
+        clearSelection();
+        e.target.classList.add('selected');
+      }
+    });
+
+    document.addEventListener('mouseover', e => {
+      if (selecting && 'row' in e.target.dataset) {
+        clearSelection();
+        const r1 = +startCell.dataset.row;
+        const c1 = +startCell.dataset.col;
+        const r2 = +e.target.dataset.row;
+        const c2 = +e.target.dataset.col;
+        const dr = Math.sign(r2 - r1);
+        const dc = Math.sign(c2 - c1);
+        const len = Math.max(Math.abs(r2 - r1), Math.abs(c2 - c1));
+        for (let i = 0; i <= len; i++) {
+          const rr = r1 + dr * i;
+          const cc = c1 + dc * i;
+          const cell = document.querySelector(`[data-row='${rr}'][data-col='${cc}']`);
+          if (!cell) break;
+          cell.classList.add('selected');
+        }
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (selecting) {
+        selecting = false;
+        checkSelection();
+      }
+    });
+
+    function clearSelection() {
+      document.querySelectorAll('#grid .selected').forEach(cell => {
+        cell.classList.remove('selected');
+      });
+    }
+
+    function checkSelection() {
+      const selectedCells = Array.from(document.querySelectorAll('#grid .selected'));
+      const text = selectedCells.map(cell => cell.textContent).join('');
+      const rev = text.split('').reverse().join('');
+      const foundWord = words.find(w => w === text || w === rev);
+      if (foundWord) {
+        selectedCells.forEach(cell => {
+          cell.classList.remove('selected');
+          cell.classList.add('found');
+        });
+        document.getElementById(`word-${foundWord}`).classList.add('found');
+      } else {
+        clearSelection();
+      }
+    }
+
+    initGrid();
+    render();
+  </script>
+</body>
+</html>
